@@ -23,18 +23,16 @@ export default function Contact() {
   return (
     <>
       <section className="page-hero">
-        <div className="site-container" style={{ padding: "52px 0" }}>
+        <div className="site-container contact-hero-wrap">
           <h1 className="section-title">Свържете се с нас</h1>
           <p className="section-subtitle">Готови сме да отговорим на всички ваши въпроси</p>
         </div>
       </section>
 
-      <section className="section" style={{ paddingTop: 42 }}>
+      <section className="section contact-section">
         <div className="site-container contact-grid">
           <div>
-            <h2 className="section-title" style={{ fontSize: "54px", marginBottom: 20 }}>
-              Информация за контакт
-            </h2>
+            <h2 className="section-title contact-page-title">Информация за контакт</h2>
 
             <article className="surface-card contact-item">
               <span className="feature-icon">T</span>
@@ -44,7 +42,7 @@ export default function Contact() {
               </div>
             </article>
 
-            <article className="surface-card contact-item" style={{ marginTop: 14 }}>
+            <article className="surface-card contact-item mt-14">
               <span className="feature-icon">@</span>
               <div>
                 <h4>Имейл</h4>
@@ -52,7 +50,7 @@ export default function Contact() {
               </div>
             </article>
 
-            <article className="surface-card contact-item" style={{ marginTop: 14 }}>
+            <article className="surface-card contact-item mt-14">
               <span className="feature-icon">Ч</span>
               <div>
                 <h4>Работно време</h4>
@@ -60,14 +58,14 @@ export default function Contact() {
               </div>
             </article>
 
-            <div className="surface-card" style={{ marginTop: 16, padding: 12 }}>
-              <h3 style={{ margin: "4px 6px 10px", fontSize: 28 }}>Локация</h3>
+            <div className="surface-card contact-map-wrap">
+              <h3 className="contact-map-title">Локация</h3>
               <iframe
                 title="Google Maps"
                 src="https://www.google.com/maps?q=Auto+Haus+Sofia&output=embed"
                 width="100%"
                 height="300"
-                style={{ border: 0, borderRadius: 12 }}
+                className="contact-map-iframe"
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
               />
@@ -77,13 +75,13 @@ export default function Contact() {
           <InquiryForm source="contact" />
         </div>
 
-        <div className="surface-card" style={{ marginTop: 26, padding: 22 }}>
-          <h3 style={{ marginTop: 0, fontSize: 36 }}>Често задавани въпроси</h3>
-          <div style={{ display: "grid", gap: 12 }}>
+        <div className="surface-card contact-faq-wrap">
+          <h3 className="contact-faq-title">Често задавани въпроси</h3>
+          <div className="contact-faq-list">
             {faqItems.map((item) => (
-              <details key={item.q} className="surface-card" style={{ padding: 14, boxShadow: "none" }}>
-                <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 24 }}>{item.q}</summary>
-                <p style={{ margin: "10px 0 0", color: "#4f678a", fontSize: 22 }}>{item.a}</p>
+              <details key={item.q} className="surface-card contact-faq-item">
+                <summary className="contact-faq-question">{item.q}</summary>
+                <p className="contact-faq-answer">{item.a}</p>
               </details>
             ))}
           </div>

@@ -15,6 +15,7 @@ export default function Navbar() {
   const { user } = useAuth();
   const { isAdmin } = useIsAdmin();
   const [newInq, setNewInq] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
   const initialLoadedRef = useRef(false);
   const lastCountRef = useRef(0);
 
@@ -50,7 +51,7 @@ export default function Navbar() {
   }, [isAdmin]);
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin) return undefined;
 
     const unsubscribe = listenForNewInquiries((newItems) => {
       const count = newItems.length;
@@ -68,46 +69,60 @@ export default function Navbar() {
 
   async function handleLogout() {
     await signOut(auth);
+    setMenuOpen(false);
   }
 
-  const userLabel = user
-    ? user.displayName?.trim() || user.email.split("@")[0]
-    : "";
+  function closeMenu() {
+    setMenuOpen(false);
+  }
+
+  const userLabel = user ? user.displayName?.trim() || user.email.split("@")[0] : "";
 
   return (
     <header className="site-nav">
       <div className="site-container site-nav-row">
-        <div className="brand">
-          <span className="brand-mark">TA</span>
-          <span>TateAuto</span>
+        <div className="nav-top">
+          <div className="brand">
+            <span className="brand-mark">TA</span>
+            <span>TateAuto</span>
+          </div>
+          <button
+            type="button"
+            className="nav-toggle"
+            aria-label={menuOpen ? "Затвори меню" : "Отвори меню"}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            {menuOpen ? "Затвори" : "Меню"}
+          </button>
         </div>
 
-        <nav className="nav-links">
-          <NavLink to="/" className={linkClass}>
+        <nav className={`nav-links ${menuOpen ? "open" : ""}`}>
+          <NavLink to="/" className={linkClass} onClick={closeMenu}>
             Начало
           </NavLink>
-          <NavLink to="/katalog" className={linkClass}>
+          <NavLink to="/katalog" className={linkClass} onClick={closeMenu}>
             Каталог
           </NavLink>
-          <NavLink to="/kontakti" className={linkClass}>
+          <NavLink to="/kontakti" className={linkClass} onClick={closeMenu}>
             Контакти
           </NavLink>
           {isAdmin ? (
             <>
-              <NavLink to="/admin/avtomobili" className={linkClass}>
+              <NavLink to="/admin/avtomobili" className={linkClass} onClick={closeMenu}>
                 Админ
               </NavLink>
-              <NavLink to="/admin/zapitvania" className={linkClass}>
+              <NavLink to="/admin/zapitvania" className={linkClass} onClick={closeMenu}>
                 Запитвания {newInq > 0 ? <span className="badge status-ok">{newInq}</span> : null}
               </NavLink>
             </>
           ) : null}
         </nav>
 
-        <div className="nav-user">
+        <div className={`nav-user ${menuOpen ? "open" : ""}`}>
           {user ? (
             <>
-              <NavLink to="/profil" className={linkClass}>
+              <NavLink to="/profil" className={linkClass} onClick={closeMenu}>
                 Профил
               </NavLink>
               <span className="user-pill" title={user.email}>
@@ -119,10 +134,10 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <NavLink to="/vhod" className={linkClass}>
+              <NavLink to="/vhod" className={linkClass} onClick={closeMenu}>
                 Вход
               </NavLink>
-              <NavLink to="/registracia" className={linkClass}>
+              <NavLink to="/registracia" className={linkClass} onClick={closeMenu}>
                 Регистрация
               </NavLink>
             </>

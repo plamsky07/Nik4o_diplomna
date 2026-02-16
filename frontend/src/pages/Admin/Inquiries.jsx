@@ -126,13 +126,6 @@ export default function InquiriesAdmin() {
                       </button>
                     )}
 
-                    <a
-                      className="btn btn-light"
-                      href={`mailto:${q.email || ""}?subject=${encodeURIComponent("Отговор на запитване - TateAuto")}`}
-                    >
-                      Отговори
-                    </a>
-
                     <button type="button" className="btn btn-light" style={{ color: "#b42318" }} onClick={() => onDelete(q.id)}>
                       Изтрий
                     </button>
