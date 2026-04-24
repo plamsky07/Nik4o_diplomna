@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { getCarCoverImage, handleCarImageError } from "../utils/carImages";
 
 function formatPrice(value) {
   if (value == null) return "-";
@@ -20,11 +21,12 @@ function getStatusLabel(status) {
 export default function CarCard({ car }) {
   const title = `${car.brand ?? ""} ${car.model ?? ""}`.trim();
   const status = getStatusLabel(car.status);
+  const coverImage = getCarCoverImage(car);
 
   return (
     <article className="car-card">
       <div className="car-media">
-        <img src={car.imageUrl} alt={title || "Автомобил"} loading="lazy" />
+        <img src={coverImage} alt={title || "Автомобил"} loading="lazy" onError={handleCarImageError} />
         <div className="car-gradient" />
         <div style={{ position: "absolute", right: 10, top: 10 }}>
           <span className={`badge ${status.cls}`}>{status.label}</span>
@@ -56,3 +58,4 @@ export default function CarCard({ car }) {
     </article>
   );
 }
+
