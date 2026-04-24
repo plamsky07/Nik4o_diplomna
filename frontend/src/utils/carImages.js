@@ -33,7 +33,6 @@ export function sanitizeCarImageUrl(value) {
 
   if (url.startsWith("data:image/") || url.startsWith("blob:")) return url;
   if (/^https?:\/\//i.test(url)) return url;
-  if (url.startsWith("/")) return url;
 
   return "";
 }
