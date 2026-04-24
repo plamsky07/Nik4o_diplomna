@@ -4,6 +4,7 @@ import { createCar, deleteCar, getCars, updateCar } from "../../api/cars";
 import { getAllInquiries } from "../../api/inquiries";
 import { uploadCarImage } from "../../api/storage";
 import { getAnalyticsSummary, trackEvent } from "../../utils/analytics";
+import { getCarCoverImage, getCarImagesForDisplay, handleCarImageError } from "../../utils/carImages";
 
 function formatDate(ts) {
   try {
@@ -26,6 +27,18 @@ function toNumberOrNull(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+function getCarImages(car) {
+  return getCarImagesForDisplay(car);
+}
+
+function moveItem(list, fromIndex, toIndex) {
+  if (toIndex < 0 || toIndex >= list.length) return list;
+  const next = [...list];
+  const [item] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, item);
+  return next;
+}
+
 function mapToEditForm(car) {
   return {
     id: car.id,
@@ -38,6 +51,7 @@ function mapToEditForm(car) {
     gearbox: car.gearbox || "",
     powerHp: car.powerHp ?? "",
     status: car.status || "наличен",
+    images: getCarImages(car),
   };
 }
 
@@ -60,9 +74,10 @@ export default function CarsAdmin() {
   const [loading, setLoading] = useState(true);
   const [editForm, setEditForm] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [editUploadingImages, setEditUploadingImages] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState(initialCreateForm);
-  const [createFile, setCreateFile] = useState(null);
+  const [createFiles, setCreateFiles] = useState([]);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -151,17 +166,75 @@ export default function CarsAdmin() {
     setCreateForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  function onCreateFilesSelect(e) {
+    const nextFiles = Array.from(e.target.files || []);
+    if (nextFiles.length === 0) return;
+    setCreateFiles((prev) => [...prev, ...nextFiles]);
+    e.target.value = "";
+  }
+
+  function moveCreateFile(fromIndex, toIndex) {
+    setCreateFiles((prev) => moveItem(prev, fromIndex, toIndex));
+  }
+
+  function removeCreateFile(index) {
+    setCreateFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function moveEditImage(fromIndex, toIndex) {
+    setEditForm((prev) => {
+      if (!prev) return prev;
+      return { ...prev, images: moveItem(prev.images || [], fromIndex, toIndex) };
+    });
+  }
+
+  function removeEditImage(index) {
+    setEditForm((prev) => {
+      if (!prev) return prev;
+      return { ...prev, images: (prev.images || []).filter((_, i) => i !== index) };
+    });
+  }
+
+  async function onEditImagesSelect(e) {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
+    if (!editForm || files.length === 0) return;
+
+    try {
+      setEditUploadingImages(true);
+      const uploaded = [];
+      for (const file of files) {
+        uploaded.push(await uploadCarImage(file));
+      }
+      setEditForm((prev) => {
+        if (!prev) return prev;
+        return { ...prev, images: [...(prev.images || []), ...uploaded] };
+      });
+      toast.success("Снимките са качени.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Грешка при качване на снимки.");
+    } finally {
+      setEditUploadingImages(false);
+    }
+  }
+
   async function onEditSave(e) {
     e.preventDefault();
     if (!editForm) return;
 
     if (!editForm.brand.trim() || !editForm.model.trim()) {
-      toast.error("Марка и модел са задължителни.");
+      toast.error("Brand and model are required.");
+      return;
+    }
+    if (!Array.isArray(editForm.images) || editForm.images.length === 0) {
+      toast.error("Add at least one image.");
       return;
     }
 
     try {
       setSaving(true);
+      const imageUrl = editForm.images[0] || "";
       await updateCar(editForm.id, {
         brand: editForm.brand.trim(),
         model: editForm.model.trim(),
@@ -172,6 +245,8 @@ export default function CarsAdmin() {
         gearbox: editForm.gearbox.trim() || null,
         powerHp: toNumberOrNull(editForm.powerHp),
         status: editForm.status,
+        imageUrl,
+        images: editForm.images,
       });
 
       setCars((prev) =>
@@ -188,17 +263,19 @@ export default function CarsAdmin() {
                 gearbox: editForm.gearbox.trim() || null,
                 powerHp: toNumberOrNull(editForm.powerHp),
                 status: editForm.status,
+                imageUrl,
+                images: editForm.images,
               }
             : car
         )
       );
 
       trackEvent("admin_car_edit");
-      toast.success("Автомобилът е обновен.");
+      toast.success("Car updated.");
       setEditForm(null);
     } catch (err) {
       console.error(err);
-      toast.error("Грешка при обновяване.");
+      toast.error("Update failed.");
     } finally {
       setSaving(false);
     }
@@ -213,8 +290,11 @@ export default function CarsAdmin() {
 
     try {
       setCreating(true);
-      let imageUrl = "";
-      if (createFile) imageUrl = await uploadCarImage(createFile);
+      const uploadedImages = [];
+      for (const file of createFiles) {
+        uploadedImages.push(await uploadCarImage(file));
+      }
+      const imageUrl = uploadedImages[0] || "";
       if (!imageUrl) {
         toast.error("Добавете снимка.");
         return;
@@ -231,6 +311,7 @@ export default function CarsAdmin() {
         powerHp: toNumberOrNull(createForm.powerHp),
         status: createForm.status,
         imageUrl,
+        images: uploadedImages,
       };
 
       const id = await createCar(payload);
@@ -238,7 +319,7 @@ export default function CarsAdmin() {
       trackEvent("admin_car_create");
       toast.success("Автомобилът е добавен.");
       setCreateForm(initialCreateForm);
-      setCreateFile(null);
+      setCreateFiles([]);
       setShowCreate(false);
     } catch (err) {
       console.error(err);
@@ -357,13 +438,34 @@ export default function CarsAdmin() {
                   className="upload-input"
                   type="file"
                   accept="image/*"
-                  onChange={(e) => setCreateFile(e.target.files?.[0] ?? null)}
+                  multiple
+                  onChange={onCreateFilesSelect}
                 />
-                <span className="upload-name">{createFile?.name || "Няма избран файл"}</span>
+                <span className="upload-name">{createFiles.length > 0 ? `${createFiles.length} selected` : "Няма избран файл"}</span>
               </div>
+              {createFiles.length > 0 ? (
+                <div className="surface-card" style={{ padding: 10, gridColumn: "1 / -1" }}>
+                  <div style={{ fontWeight: 700, marginBottom: 6 }}>Ред на снимките (първата е основна)</div>
+                  <div style={{ display: "grid", gap: 6 }}>
+                    {createFiles.map((file, index) => (
+                      <div
+                        key={`${file.name}-${file.lastModified}-${index}`}
+                        style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 6, alignItems: "center" }}
+                      >
+                        <span className="muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {index + 1}. {file.name}
+                        </span>
+                        <button type="button" className="btn btn-light" onClick={() => moveCreateFile(index, index - 1)} disabled={index === 0}>Up</button>
+                        <button type="button" className="btn btn-light" onClick={() => moveCreateFile(index, index + 1)} disabled={index === createFiles.length - 1}>Down</button>
+                        <button type="button" className="btn btn-light" style={{ color: "#c81e1e" }} onClick={() => removeCreateFile(index)}>x</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <button type="submit" className="btn btn-brand" disabled={creating}>{creating ? "Добавяне..." : "Добави"}</button>
-                <button type="button" className="btn btn-light" onClick={() => { setShowCreate(false); setCreateForm(initialCreateForm); setCreateFile(null); }}>Отказ</button>
+                <button type="button" className="btn btn-light" onClick={() => { setShowCreate(false); setCreateForm(initialCreateForm); setCreateFiles([]); }}>Отказ</button>
               </div>
             </form>
           </article>
@@ -386,8 +488,48 @@ export default function CarsAdmin() {
                 <option value="резервиран">Резервиран</option>
                 <option value="продаден">Продаден</option>
               </select>
+              <div className="upload-field" style={{ gridColumn: "1 / -1" }}>
+                <label htmlFor="edit-car-images" className="upload-btn">
+                  Add more images
+                </label>
+                <input
+                  id="edit-car-images"
+                  className="upload-input"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={onEditImagesSelect}
+                  disabled={editUploadingImages}
+                />
+                <span className="upload-name">
+                  {editUploadingImages ? "Uploading..." : `${editForm.images?.length || 0} images total`}
+                </span>
+              </div>
+              <div className="surface-card" style={{ padding: 10, gridColumn: "1 / -1" }}>
+                <div style={{ fontWeight: 700, marginBottom: 6 }}>Gallery (first image is cover)</div>
+                {Array.isArray(editForm.images) && editForm.images.length > 0 ? (
+                  <div style={{ display: "grid", gap: 6 }}>
+                    {editForm.images.map((url, index) => (
+                      <div
+                        key={`${url}-${index}`}
+                        style={{ display: "grid", gridTemplateColumns: "72px 1fr auto auto auto", gap: 6, alignItems: "center" }}
+                      >
+                        <img src={url} alt={`img-${index + 1}`} onError={handleCarImageError} style={{ width: 72, height: 48, objectFit: "cover", borderRadius: 8, border: "1px solid var(--line)" }} />
+                        <span className="muted" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {index + 1}. {url}
+                        </span>
+                        <button type="button" className="btn btn-light" onClick={() => moveEditImage(index, index - 1)} disabled={index === 0}>Up</button>
+                        <button type="button" className="btn btn-light" onClick={() => moveEditImage(index, index + 1)} disabled={index === editForm.images.length - 1}>Down</button>
+                        <button type="button" className="btn btn-light" style={{ color: "#c81e1e" }} onClick={() => removeEditImage(index)}>x</button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="muted">No images.</div>
+                )}
+              </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <button type="submit" className="btn btn-brand" disabled={saving}>{saving ? "Запис..." : "Запази"}</button>
+                <button type="submit" className="btn btn-brand" disabled={saving || editUploadingImages}>{saving ? "Запис..." : "Запази"}</button>
                 <button type="button" className="btn btn-light" onClick={() => setEditForm(null)}>Отказ</button>
               </div>
             </form>
@@ -427,7 +569,7 @@ export default function CarsAdmin() {
                   <tr key={car.id}>
                     <td>
                       <div className="car-mini">
-                        <img src={car.imageUrl} alt={`${car.brand || ""} ${car.model || ""}`} />
+                        <img src={getCarCoverImage(car)} alt={`${car.brand || ""} ${car.model || ""}`} onError={handleCarImageError} />
                         <div>
                           <div style={{ fontWeight: 800 }}>{`${car.brand || ""} ${car.model || ""}`}</div>
                           <div className="muted">{`${car.fuel || "-"} | ${car.gearbox || "-"}`}</div>
@@ -463,3 +605,10 @@ export default function CarsAdmin() {
     </section>
   );
 }
+
+
+
+
+
+
+
